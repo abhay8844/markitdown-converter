@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarkitDown Extension</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Local styles -->
+    <link rel="stylesheet" href="popup.css">
+    <!-- Local Marked.js for MV3 compliance -->
+    <script src="marked.min.js"></script>
+</head>
+<body>
+    <!-- Background glowing orbs -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-main">
+                <div class="logo-area">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <h1 class="logo-text">Markit<span class="gradient-text">Down</span></h1>
+                </div>
+                <div id="server-status" class="server-status checking">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Checking server...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace-area">
+            
+            <!-- Upload Panel -->
+            <section id="upload-panel" class="control-panel glass-card">
+                <div class="panel-header">
+                    <h2>Document Upload</h2>
+                    <span class="badge">Local Engine</span>
+                </div>
+
+                <!-- Dropzone Area -->
+                <div id="dropzone" class="dropzone">
+                    <input type="file" id="fileInput" class="hidden-input" accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.csv,.tsv,.json,.xml,.txt,.text,.md,.rst">
+                    
+                    <!-- Default State -->
+                    <div id="dropzone-default" class="dropzone-state">
+                        <div class="upload-icon-container">
+                            <svg class="upload-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3>Drag & Drop file here</h3>
+                        <p class="upload-instructions">or click to browse</p>
+                        <p class="file-limits">Supports PDF, DOCX, XLSX, PPTX, HTML, TXT (Max 150MB)</p>
+                    </div>
+
+                    <!-- Uploading State -->
+                    <div id="dropzone-uploading" class="dropzone-state hidden">
+                        <div class="progress-ring-container">
+                            <svg class="progress-ring" width="100" height="100">
+                                <circle class="progress-ring-bg" stroke="rgba(255,255,255,0.05)" stroke-width="5" fill="transparent" r="42" cx="50" cy="50"/>
+                                <circle id="progress-bar-fill" class="progress-ring-fill" stroke="var(--teal)" stroke-width="5" fill="transparent" r="42" cx="50" cy="50" stroke-dasharray="263.89" stroke-dashoffset="263.89"/>
+                            </svg>
+                            <div id="upload-percentage" class="percentage-label">0%</div>
+                        </div>
+                        <h3>Uploading Document</h3>
+                        <p id="upload-status" class="process-subtext">Uploading...</p>
+                        <div class="pulse-bar-container">
+                            <div class="pulse-bar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Converting State -->
+                    <div id="dropzone-converting" class="dropzone-state hidden">
+                        <div class="terminal-container">
+                            <div class="terminal-header">
+                                <div class="terminal-dot red"></div>
+                                <div class="terminal-dot yellow"></div>
+                                <div class="terminal-dot green"></div>
+                                <span class="terminal-title">markitdown-parser.sh</span>
+                            </div>
+                            <div id="terminal-log" class="terminal-log">
+                                <div class="log-line text-info">&gt; Connecting to FastAPI server...</div>
+                            </div>
+                        </div>
+                        <h3>Converting Document</h3>
+                        <p class="process-subtext">Parsing document syntax...</p>
+                    </div>
+                </div>
+
+                <!-- Error Indicator -->
+                <div id="error-container" class="error-container hidden">
+                    <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <div class="error-msg-wrap">
+                        <h4>Processing Failed</h4>
+                        <p id="error-text">An error occurred during conversion.</p>
+                    </div>
+                    <button id="error-reset-btn" class="btn btn-secondary btn-sm">Try Again</button>
+                </div>
+            </section>
+
+            <!-- Results Viewport -->
+            <section id="results-panel" class="results-panel glass-card hidden">
+                <div class="results-header">
+                    <div class="file-info-summary">
+                        <svg class="result-doc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <div class="file-meta">
+                            <h3 id="result-filename">document.pdf</h3>
+                            <span id="result-filetype">PDF Document</span>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-controls">
+                        <button id="tab-btn-preview" class="tab-btn active" data-tab="preview">Visual</button>
+                        <button id="tab-btn-raw" class="tab-btn" data-tab="raw">Markdown</button>
+                    </div>
+                </div>
+
+                <!-- Stats Dashboard Section -->
+                <div class="stats-dashboard">
+                    <div class="stat-card">
+                        <span class="stat-label">Original</span>
+                        <span id="stat-orig-size" class="stat-value">--</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Markdown</span>
+                        <span id="stat-md-size" class="stat-value">--</span>
+                    </div>
+                    <div class="stat-card highlight">
+                        <span class="stat-label">Saved</span>
+                        <span id="stat-savings" class="stat-value text-gradient">--</span>
+                    </div>
+                </div>
+
+                <!-- Viewport Content Area -->
+                <div class="viewport-container">
+                    <!-- Tab Content 1: Visual Rendered HTML Preview -->
+                    <div id="tab-content-preview" class="tab-content markdown-body">
+                        <!-- Rendered Markdown will go here -->
+                    </div>
+
+                    <!-- Tab Content 2: Raw Markdown -->
+                    <div id="tab-content-raw" class="tab-content hidden">
+                        <pre id="raw-markdown-code"><code><!-- Raw MD goes here --></code></pre>
+                    </div>
+                </div>
+
+                <!-- Action Toolbar -->
+                <div class="action-toolbar">
+                    <button id="reset-btn" class="btn btn-secondary btn-sm">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        </svg>
+                        Reset
+                    </button>
+                    <div class="action-group-right">
+                        <button id="copy-btn" class="btn btn-primary btn-sm">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Copy
+                        </button>
+                        <button id="download-btn" class="btn btn-accent btn-sm">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download
+                        </button>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+    </div>
+
+    <!-- Alert toast for notifications -->
+    <div id="toast" class="toast hidden">Copied to clipboard!</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

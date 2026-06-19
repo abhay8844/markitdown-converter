@@ -1,0 +1,17 @@
+# Virtual environments (Python)
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment secrets
+.env
+
+# Local Chrome Extension files (if you don't want them in the main backend repo, though keeping them here is fine if you prefer)
+# chrome-extension/

@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "MarkitDown Converter",
+  "version": "1.0.0",
+  "description": "Convert documents directly into clean, optimized Markdown using the local MarkItDown API.",
+  "permissions": [],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

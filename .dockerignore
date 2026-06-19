@@ -1,0 +1,22 @@
+# Exclude Python cache and venv files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+.env/
+
+# Exclude environment secrets (crucial for security!)
+.env
+
+# Exclude local extension files (not needed on the server side)
+chrome-extension/
+
+# Exclude version control and ide configurations
+.git
+.gitignore
+.vscode/
+.idea/
+.gemini/
