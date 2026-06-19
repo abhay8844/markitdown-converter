@@ -1,5 +1,5 @@
 :root {
-    --bg-dark: #070913;
+    --bg-dark: #000000;
     --card-bg: rgba(15, 22, 42, 0.6);
     --border-color: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(99, 102, 241, 0.4);
@@ -37,14 +37,7 @@ body {
 
 /* Background Glowing Orbs */
 .glow-orb {
-    position: absolute;
-    width: 250px;
-    height: 250px;
-    border-radius: 50%;
-    filter: blur(80px);
-    z-index: -1;
-    pointer-events: none;
-    opacity: 0.35;
+    display: none;
 }
 
 .orb-1 {

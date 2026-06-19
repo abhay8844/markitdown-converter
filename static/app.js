@@ -226,8 +226,7 @@ function showConvertingLogs(filename, size) {
     const steps = [
         { text: 'Parsing document layout nodes...', delay: 1000 },
         { text: 'Extracting inline tables and text structures...', delay: 2500 },
-        { text: 'Refining formatting via Gemini API...', delay: 4500 },
-        { text: 'Optimizing final Markdown representation...', delay: 6500 }
+        { text: 'Optimizing final Markdown representation...', delay: 4500 }
     ];
     
     steps.forEach(step => {
