@@ -42,6 +42,8 @@ const serverStatusDiv = document.getElementById('server-status');
 let currentMarkdown = '';
 let currentFilename = '';
 let isServerOnline = false;
+let activeTimeouts = [];
+let isConvertingStateStarted = false;
 
 // Allowed extensions matching python backend
 const ALLOWED_EXTENSIONS = [
@@ -196,6 +198,7 @@ function uploadFile(file) {
     
     updateProgressRing(0);
     uploadStatus.textContent = `Preparing upload: 0B / ${formatBytes(file.size)}`;
+    isConvertingStateStarted = false;
 
     const formData = new FormData();
     formData.append('file', file);
@@ -209,6 +212,9 @@ function uploadFile(file) {
             const percentComplete = Math.round((e.loaded / e.total) * 100);
             updateProgressRing(percentComplete);
             uploadStatus.textContent = `Uploading: ${formatBytes(e.loaded)} / ${formatBytes(e.total)}`;
+            if (percentComplete >= 100) {
+                showConvertingLogs(file.name, file.size);
+            }
         }
     };
 
@@ -218,7 +224,7 @@ function uploadFile(file) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
-                    startConvertingAnimation(response);
+                    showCompletionLogs(response, file.size);
                 } else {
                     showError("Conversion Error", response.detail || "Server failed to parse the document.");
                 }
@@ -253,38 +259,72 @@ function updateProgressRing(percent) {
     progressBarFill.style.strokeDashoffset = offset;
 }
 
-// Simulated terminal-style logs showing conversion details
-function startConvertingAnimation(data) {
+// Show converting logs immediately when file finishes uploading to Render
+function showConvertingLogs(filename, size) {
+    if (isConvertingStateStarted) return;
+    isConvertingStateStarted = true;
+    
     dropzoneUploading.classList.add('hidden');
     dropzoneConverting.classList.remove('hidden');
-    
     terminalLog.innerHTML = '';
     
-    const logStatements = [
+    // Clear any active timeouts
+    activeTimeouts.forEach(clearTimeout);
+    activeTimeouts = [];
+    
+    const logs = [
         { text: '✔ Connection established.', class: 'text-success', delay: 50 },
-        { text: `🗂 File read: ${data.filename} (${formatBytes(data.original_size)})`, class: 'text-normal', delay: 150 },
-        { text: '⚙ Spawning Microsoft MarkItDown parser...', class: 'text-info', delay: 250 },
-        { text: '⚡ [1/3] Parsing layout nodes and formatting sheets...', class: 'text-warning', delay: 350 },
-        { text: '⚡ [2/3] Extracting inline tables and text structures...', class: 'text-warning', delay: 450 },
-        { text: '⚡ [3/3] Constructing Markdown representations...', class: 'text-warning', delay: 550 },
-        { text: '✔ Token reduction analysis complete.', class: 'text-success', delay: 650 },
-        { text: '✍ Formatting final Markdown content...', class: 'text-info', delay: 750 },
-        { text: '🎉 Process completed successfully!', class: 'text-success', delay: 850 }
+        { text: `🗂 File received: ${filename} (${formatBytes(size)})`, class: 'text-normal', delay: 200 },
+        { text: '⚙ Spawning Microsoft MarkItDown parser on server...', class: 'text-info', delay: 400 },
+        { text: '⚡ Running document structure analysis...', class: 'text-warning', delay: 700 },
+        { text: '⏳ Waiting for Gemini API layout refinement...', class: 'text-warning', delay: 1100 }
     ];
-
-    logStatements.forEach((log) => {
-        setTimeout(() => {
+    
+    logs.forEach(log => {
+        const t = setTimeout(() => {
             const line = document.createElement('div');
             line.className = `log-line ${log.class}`;
             line.textContent = log.text;
             terminalLog.appendChild(line);
             terminalLog.scrollTop = terminalLog.scrollHeight;
         }, log.delay);
+        activeTimeouts.push(t);
+    });
+}
+
+// Show completion sequence as soon as the server response returns
+function showCompletionLogs(data, originalSize) {
+    activeTimeouts.forEach(clearTimeout);
+    activeTimeouts = [];
+    
+    terminalLog.innerHTML = '';
+    
+    const completionLogs = [
+        { text: '✔ Connection established.', class: 'text-success' },
+        { text: `🗂 File received: ${data.filename} (${formatBytes(originalSize)})`, class: 'text-normal' },
+        { text: '⚙ Spawning Microsoft MarkItDown parser on server...', class: 'text-info' },
+        { text: '✔ Document structure parsed successfully.', class: 'text-success' },
+        { text: '✔ Gemini layout refinement complete.', class: 'text-success' },
+        { text: '✔ Token savings analysis complete.', class: 'text-success' },
+        { text: '✍ Formatting final Markdown content...', class: 'text-info' },
+        { text: '🎉 Process completed successfully!', class: 'text-success' }
+    ];
+    
+    completionLogs.forEach((log, index) => {
+        const t = setTimeout(() => {
+            const line = document.createElement('div');
+            line.className = `log-line ${log.class}`;
+            line.textContent = log.text;
+            terminalLog.appendChild(line);
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }, index * 60);
+        activeTimeouts.push(t);
     });
 
-    setTimeout(() => {
+    const finalT = setTimeout(() => {
         displayResults(data);
-    }, 1050);
+    }, completionLogs.length * 60 + 150);
+    activeTimeouts.push(finalT);
 }
 
 // Render converted Markdown and stats in Popup results screen
@@ -343,6 +383,10 @@ function switchTab(tab) {
 
 // Display error messages inside container
 function showError(title, msg) {
+    activeTimeouts.forEach(clearTimeout);
+    activeTimeouts = [];
+    isConvertingStateStarted = false;
+
     dropzoneDefault.classList.add('hidden');
     dropzoneUploading.classList.add('hidden');
     dropzoneConverting.classList.add('hidden');
@@ -355,6 +399,10 @@ function showError(title, msg) {
 
 // Reset UI state to start over
 function resetAppState() {
+    activeTimeouts.forEach(clearTimeout);
+    activeTimeouts = [];
+    isConvertingStateStarted = false;
+
     errorContainer.classList.add('hidden');
     resultsPanel.classList.add('hidden');
     dropzoneUploading.classList.add('hidden');
