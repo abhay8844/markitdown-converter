@@ -1,5 +1,5 @@
 // API Configuration
-const API_URL = 'http://localhost:8000';
+const API_URL = 'https://convert-to-md.onrender.com';
 
 // UI Element Selectors
 const dropzone = document.getElementById('dropzone');
