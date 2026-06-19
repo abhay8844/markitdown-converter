@@ -212,15 +212,15 @@ function startConvertingAnimation(data) {
     terminalLog.innerHTML = '';
     
     const logStatements = [
-        { text: '> Connection established. Handing file over to python runtime...', class: 'text-info', delay: 100 },
-        { text: `> Found file: ${data.filename} (${formatBytes(data.original_size)})`, class: 'text-normal', delay: 400 },
-        { text: '> Spawning Microsoft MarkItDown local parser worker...', class: 'text-info', delay: 800 },
-        { text: '> [1/3] Parsing layout nodes and formatting sheets...', class: 'text-warning', delay: 1300 },
-        { text: '> [2/3] Extracting inline tables, paragraphs, and styles...', class: 'text-warning', delay: 1800 },
-        { text: '> [3/3] Constructing compliant Markdown AST structures...', class: 'text-warning', delay: 2300 },
-        { text: '> Token reduction analysis complete.', class: 'text-success', delay: 2700 },
-        { text: '> Formatting final Markdown representation...', class: 'text-info', delay: 3000 },
-        { text: '> Process completed successfully. Displaying results.', class: 'text-success', delay: 3400 }
+        { text: '✔ Connection established.', class: 'text-success', delay: 50 },
+        { text: `🗂 File read: ${data.filename} (${formatBytes(data.original_size)})`, class: 'text-normal', delay: 150 },
+        { text: '⚙ Spawning Microsoft MarkItDown parser...', class: 'text-info', delay: 250 },
+        { text: '⚡ [1/3] Parsing layout nodes and formatting sheets...', class: 'text-warning', delay: 350 },
+        { text: '⚡ [2/3] Extracting inline tables and text structures...', class: 'text-warning', delay: 450 },
+        { text: '⚡ [3/3] Constructing Markdown representations...', class: 'text-warning', delay: 550 },
+        { text: '✔ Token reduction analysis complete.', class: 'text-success', delay: 650 },
+        { text: '✍ Formatting final Markdown content...', class: 'text-info', delay: 750 },
+        { text: '🎉 Process completed successfully!', class: 'text-success', delay: 850 }
     ];
 
     logStatements.forEach((log) => {
@@ -236,7 +236,7 @@ function startConvertingAnimation(data) {
     // Display the results after logs finish
     setTimeout(() => {
         displayResults(data);
-    }, 3700);
+    }, 1050);
 }
 
 // Display converted Markdown & stats

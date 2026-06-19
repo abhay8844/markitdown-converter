@@ -389,14 +389,14 @@ body {
 
 .log-line {
     opacity: 0;
-    transform: translateY(4px);
-    animation: lineFadeIn 0.25s forwards;
+    transform: translateX(-10px);
+    animation: lineSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-@keyframes lineFadeIn {
-    to { opacity: 1; transform: translateY(0); }
+@keyframes lineSlideIn {
+    to { opacity: 1; transform: translateX(0); }
 }
 
 .text-info { color: #38bdf8; }
