@@ -85,19 +85,26 @@
 
                     <!-- Converting State -->
                     <div id="dropzone-converting" class="dropzone-state hidden">
-                        <div class="terminal-container">
-                            <div class="terminal-header">
-                                <div class="terminal-dot red"></div>
-                                <div class="terminal-dot yellow"></div>
-                                <div class="terminal-dot green"></div>
-                                <span class="terminal-title">markitdown-parser.sh</span>
+                        <div class="converting-animation-container">
+                            <div class="document-scanner">
+                                <div class="scanner-doc">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13" class="doc-line doc-line-1"/>
+                                        <line x1="16" y1="17" x2="8" y2="17" class="doc-line doc-line-2"/>
+                                    </svg>
+                                </div>
+                                <div class="scanner-laser"></div>
                             </div>
-                            <div id="terminal-log" class="terminal-log">
-                                <div class="log-line text-info">&gt; Connecting to FastAPI server...</div>
+                            <div class="converting-particles">
+                                <span class="particle p1"></span>
+                                <span class="particle p2"></span>
+                                <span class="particle p3"></span>
                             </div>
                         </div>
                         <h3>Converting Document</h3>
-                        <p class="process-subtext">Parsing document syntax...</p>
+                        <p id="convert-status-text" class="process-subtext">Parsing document structures...</p>
                     </div>
                 </div>
 

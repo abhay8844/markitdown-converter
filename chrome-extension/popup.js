@@ -12,7 +12,7 @@ const uploadPanel = document.getElementById('upload-panel');
 const progressBarFill = document.getElementById('progress-bar-fill');
 const uploadPercentage = document.getElementById('upload-percentage');
 const uploadStatus = document.getElementById('upload-status');
-const terminalLog = document.getElementById('terminal-log');
+const convertStatusText = document.getElementById('convert-status-text');
 
 const errorContainer = document.getElementById('error-container');
 const errorText = document.getElementById('error-text');
@@ -266,28 +266,24 @@ function showConvertingLogs(filename, size) {
     
     dropzoneUploading.classList.add('hidden');
     dropzoneConverting.classList.remove('hidden');
-    terminalLog.innerHTML = '';
     
     // Clear any active timeouts
     activeTimeouts.forEach(clearTimeout);
     activeTimeouts = [];
     
-    const logs = [
-        { text: '✔ Connection established.', class: 'text-success', delay: 50 },
-        { text: `🗂 File received: ${filename} (${formatBytes(size)})`, class: 'text-normal', delay: 200 },
-        { text: '⚙ Spawning Microsoft MarkItDown parser on server...', class: 'text-info', delay: 400 },
-        { text: '⚡ Running document structure analysis...', class: 'text-warning', delay: 700 },
-        { text: '⏳ Waiting for Gemini API layout refinement...', class: 'text-warning', delay: 1100 }
+    convertStatusText.textContent = 'Spawning parser and establishing connection...';
+    
+    const steps = [
+        { text: 'Parsing document layout nodes...', delay: 1000 },
+        { text: 'Extracting inline tables and text structures...', delay: 2500 },
+        { text: 'Refining formatting via Gemini API...', delay: 4500 },
+        { text: 'Optimizing final Markdown representation...', delay: 6500 }
     ];
     
-    logs.forEach(log => {
+    steps.forEach(step => {
         const t = setTimeout(() => {
-            const line = document.createElement('div');
-            line.className = `log-line ${log.class}`;
-            line.textContent = log.text;
-            terminalLog.appendChild(line);
-            terminalLog.scrollTop = terminalLog.scrollHeight;
-        }, log.delay);
+            convertStatusText.textContent = step.text;
+        }, step.delay);
         activeTimeouts.push(t);
     });
 }
@@ -297,33 +293,11 @@ function showCompletionLogs(data, originalSize) {
     activeTimeouts.forEach(clearTimeout);
     activeTimeouts = [];
     
-    terminalLog.innerHTML = '';
+    convertStatusText.textContent = 'Conversion completed! Rendering results...';
     
-    const completionLogs = [
-        { text: '✔ Connection established.', class: 'text-success' },
-        { text: `🗂 File received: ${data.filename} (${formatBytes(originalSize)})`, class: 'text-normal' },
-        { text: '⚙ Spawning Microsoft MarkItDown parser on server...', class: 'text-info' },
-        { text: '✔ Document structure parsed successfully.', class: 'text-success' },
-        { text: '✔ Gemini layout refinement complete.', class: 'text-success' },
-        { text: '✔ Token savings analysis complete.', class: 'text-success' },
-        { text: '✍ Formatting final Markdown content...', class: 'text-info' },
-        { text: '🎉 Process completed successfully!', class: 'text-success' }
-    ];
-    
-    completionLogs.forEach((log, index) => {
-        const t = setTimeout(() => {
-            const line = document.createElement('div');
-            line.className = `log-line ${log.class}`;
-            line.textContent = log.text;
-            terminalLog.appendChild(line);
-            terminalLog.scrollTop = terminalLog.scrollHeight;
-        }, index * 60);
-        activeTimeouts.push(t);
-    });
-
     const finalT = setTimeout(() => {
         displayResults(data);
-    }, completionLogs.length * 60 + 150);
+    }, 200);
     activeTimeouts.push(finalT);
 }
 

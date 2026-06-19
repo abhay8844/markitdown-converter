@@ -339,87 +339,109 @@ body {
     100% { transform: translateX(-150%); }
 }
 
-/* Terminal Log for Parser status */
-.terminal-container {
-    width: 100%;
-    background: #020617;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    padding: 0.5rem;
-    text-align: left;
-    font-family: var(--font-mono);
+/* Document Scanner Animation */
+.converting-animation-container {
     position: relative;
-}
-
-.terminal-header {
+    width: 140px;
+    height: 140px;
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    justify-content: center;
     margin-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    padding-bottom: 0.35rem;
 }
 
-.terminal-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-}
-.terminal-dot.red { background: #ef4444; }
-.terminal-dot.yellow { background: #f59e0b; }
-.terminal-dot.green { background: #10b981; }
-
-.terminal-title {
-    font-size: 0.65rem;
-    color: var(--text-dark);
-    margin-left: 0.25rem;
-}
-
-.terminal-log {
-    font-size: 0.7rem;
-    line-height: 1.4;
-    height: 110px;
-    overflow-y: auto;
+.document-scanner {
+    position: relative;
+    width: 70px;
+    height: 90px;
+    background: rgba(15, 22, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
     display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    scrollbar-width: none;
-}
-.terminal-log::-webkit-scrollbar { display: none; }
-
-.log-line {
-    opacity: 0;
-    transform: translateX(-10px);
-    animation: lineSlideIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    white-space: nowrap;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.05);
     overflow: hidden;
-    text-overflow: ellipsis;
-}
-@keyframes lineSlideIn {
-    to { opacity: 1; transform: translateX(0); }
+    z-index: 2;
+    animation: scannerPulse 2s infinite alternate;
 }
 
-.text-info { color: #38bdf8; }
-.text-success { color: #34d399; }
-.text-warning { color: #fbbf24; }
-.text-normal { color: #e2e8f0; }
+.scanner-doc {
+    width: 44px;
+    height: 44px;
+    color: var(--indigo);
+    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
+}
 
-.terminal-container::after {
-    content: '';
+.scanner-doc svg {
+    width: 100%;
+    height: 100%;
+}
+
+.doc-line {
+    stroke-dasharray: 8;
+    animation: lineDash 1.5s infinite linear;
+}
+
+.doc-line-1 { animation-delay: 0s; }
+.doc-line-2 { animation-delay: 0.75s; }
+
+@keyframes lineDash {
+    0% { stroke-dashoffset: 8; }
+    100% { stroke-dashoffset: 0; }
+}
+
+.scanner-laser {
     position: absolute;
-    top: 0;
     left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(to right, transparent, var(--teal), transparent);
-    animation: scanner 2.5s infinite linear;
-    box-shadow: 0 0 6px var(--teal);
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    box-shadow: 0 0 8px var(--teal), 0 0 15px var(--teal);
+    animation: laserScan 2s infinite ease-in-out;
+    z-index: 5;
     pointer-events: none;
 }
-@keyframes scanner {
-    0% { top: 0%; }
-    50% { top: 100%; }
-    100% { top: 0%; }
+
+@keyframes laserScan {
+    0%, 100% { top: 10%; opacity: 0.3; }
+    50% { top: 85%; opacity: 1; }
+}
+
+@keyframes scannerPulse {
+    0% { border-color: rgba(99, 102, 241, 0.1); box-shadow: 0 0 15px rgba(99, 102, 241, 0.05); }
+    100% { border-color: rgba(20, 184, 166, 0.3); box-shadow: 0 0 25px rgba(20, 184, 166, 0.15); }
+}
+
+/* Floating Particles representing Markdown nodes */
+.converting-particles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: var(--teal);
+    border-radius: 50%;
+    opacity: 0;
+    box-shadow: 0 0 6px var(--teal);
+}
+
+.p1 { left: 20%; bottom: 10%; animation: floatParticle 1.8s infinite linear 0.2s; }
+.p2 { left: 50%; bottom: 10%; animation: floatParticle 2.2s infinite linear 0.8s; }
+.p3 { left: 80%; bottom: 10%; animation: floatParticle 1.5s infinite linear 0.4s; }
+
+@keyframes floatParticle {
+    0% { transform: translateY(0) scale(0.5); opacity: 0; }
+    30% { opacity: 0.8; }
+    100% { transform: translateY(-80px) scale(1.2); opacity: 0; }
 }
 
 /* Error component styling */
