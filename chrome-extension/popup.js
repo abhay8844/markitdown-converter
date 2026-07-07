@@ -47,7 +47,7 @@ let isConvertingStateStarted = false;
 
 // Allowed extensions matching python backend
 const ALLOWED_EXTENSIONS = [
-    'pdf', 'docx', 'xlsx', 'pptx', 'html', 'htm', 'csv', 'tsv', 'json', 'xml', 'txt', 'text', 'md', 'rst'
+    'pdf', 'docx', 'xlsx', 'pptx', 'html', 'htm', 'csv', 'tsv', 'json', 'xml', 'txt', 'text', 'md', 'rst', 'png', 'jpg', 'jpeg'
 ];
 
 // Audio/Video blocked extensions
@@ -109,6 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Clicking status badge re-checks
     serverStatusDiv.addEventListener('click', checkServerStatus);
+    
+    // Initialize Settings on load
+    initSettings();
 });
 
 // Ping the FastAPI backend server to check if it's running
@@ -205,6 +208,17 @@ function uploadFile(file) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_URL}/convert`, true);
+
+    // Set configuration headers from local storage
+    const activeProvider = localStorage.getItem('api_provider') || 'gemini';
+    const activeKey = localStorage.getItem(`api_key_${activeProvider}`) || '';
+    const selectedTemplate = document.getElementById('template-select').value || 'auto';
+    
+    if (activeKey) {
+        xhr.setRequestHeader('X-API-Key', activeKey);
+    }
+    xhr.setRequestHeader('X-API-Provider', activeProvider);
+    xhr.setRequestHeader('X-Template', selectedTemplate);
 
     // Track upload progress
     xhr.upload.onprogress = (e) => {
@@ -336,6 +350,14 @@ function displayResults(data) {
         rawMarkdownCode.textContent = data.markdown;
     }
     
+    // Show image warning toast if backend detected an image without key
+    const imageWarningToast = document.getElementById('image-warning-toast');
+    if (data.image_no_key) {
+        imageWarningToast.classList.remove('hidden');
+    } else {
+        imageWarningToast.classList.add('hidden');
+    }
+    
     switchTab('preview');
 }
 
@@ -380,6 +402,7 @@ function resetAppState() {
     resultsPanel.classList.add('hidden');
     dropzoneUploading.classList.add('hidden');
     dropzoneConverting.classList.add('hidden');
+    document.getElementById('image-warning-toast').classList.add('hidden');
     
     uploadPanel.classList.remove('hidden');
     dropzoneDefault.classList.remove('hidden');
@@ -443,4 +466,97 @@ function showToast(msg) {
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 2000);
+}
+
+// API Key settings logic for Chrome Extension
+const settingsToggleBtn = document.getElementById('settings-toggle-btn');
+const settingsModal = document.getElementById('settings-modal');
+const modalOverlay = document.getElementById('modal-overlay');
+const modalCloseBtn = document.getElementById('modal-close-btn');
+const saveSettingsBtn = document.getElementById('save-settings-btn');
+const clearSettingsBtn = document.getElementById('clear-settings-btn');
+const providerSelect = document.getElementById('provider-select');
+const apiKeyInput = document.getElementById('api-key-input');
+const keyVisibilityToggle = document.getElementById('key-visibility-toggle');
+const warningToastClose = document.getElementById('warning-toast-close');
+const imageWarningToast = document.getElementById('image-warning-toast');
+
+function openModal() {
+    initSettings();
+    settingsModal.classList.remove('hidden');
+}
+
+function closeModal() {
+    settingsModal.classList.add('hidden');
+}
+
+settingsToggleBtn.addEventListener('click', openModal);
+modalOverlay.addEventListener('click', closeModal);
+modalCloseBtn.addEventListener('click', closeModal);
+warningToastClose.addEventListener('click', () => {
+    imageWarningToast.classList.add('hidden');
+});
+
+keyVisibilityToggle.addEventListener('click', () => {
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        keyVisibilityToggle.textContent = '🙈';
+    } else {
+        apiKeyInput.type = 'password';
+        keyVisibilityToggle.textContent = '👁️';
+    }
+});
+
+providerSelect.addEventListener('change', (e) => {
+    const provider = e.target.value;
+    const currentKey = localStorage.getItem(`api_key_${provider}`) || '';
+    apiKeyInput.value = currentKey;
+    updateStatusBadge(provider, !!currentKey);
+});
+
+saveSettingsBtn.addEventListener('click', () => {
+    const provider = providerSelect.value;
+    const key = apiKeyInput.value.trim();
+    
+    localStorage.setItem('api_provider', provider);
+    localStorage.setItem(`api_key_${provider}`, key);
+    localStorage.setItem('api_key', key);
+    
+    updateStatusBadge(provider, !!key);
+    showToast("Settings saved!");
+    closeModal();
+});
+
+clearSettingsBtn.addEventListener('click', () => {
+    const provider = providerSelect.value;
+    apiKeyInput.value = '';
+    localStorage.removeItem(`api_key_${provider}`);
+    localStorage.setItem('api_key', '');
+    updateStatusBadge(provider, false);
+    showToast("Key cleared!");
+});
+
+function updateStatusBadge(provider, keyExists) {
+    const badge = document.getElementById('key-status-badge');
+    const providerNames = {
+        'gemini': 'Gemini',
+        'openai': 'OpenAI',
+        'claude': 'Claude'
+    };
+    const name = providerNames[provider] || 'API';
+    if (keyExists) {
+        badge.textContent = `✓ ${name} Active`;
+        badge.className = 'status-badge active';
+    } else {
+        badge.textContent = `✗ No ${name} Key`;
+        badge.className = 'status-badge inactive';
+    }
+}
+
+function initSettings() {
+    const provider = localStorage.getItem('api_provider') || 'gemini';
+    providerSelect.value = provider;
+    const currentKey = localStorage.getItem(`api_key_${provider}`) || '';
+    apiKeyInput.value = currentKey;
+    updateStatusBadge(provider, !!currentKey);
 }

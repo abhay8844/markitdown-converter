@@ -6,7 +6,8 @@ import uuid
 import requests
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from typing import Optional
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,9 +27,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize MarkItDown (without external LLM dependencies, just local document parser)
-markitdown = MarkItDown()
-
 # List of allowed file extensions
 ALLOWED_EXTENSIONS = {
     ".pdf",
@@ -44,8 +42,164 @@ ALLOWED_EXTENSIONS = {
     ".txt",
     ".text",
     ".md",
-    ".rst"
+    ".rst",
+    ".png",
+    ".jpg",
+    ".jpeg"
 }
+
+class MultiProviderMockClient:
+    def __init__(self, provider: str, api_key: str):
+        self.provider = provider.lower().strip() if provider else "gemini"
+        self.api_key = api_key
+        self.chat = self.Chat(self.provider, api_key)
+
+    class Chat:
+        def __init__(self, provider: str, api_key: str):
+            self.completions = self.Completions(provider, api_key)
+
+        class Completions:
+            def __init__(self, provider: str, api_key: str):
+                self.provider = provider
+                self.api_key = api_key
+
+            def create(self, model: str, messages: list, **kwargs):
+                import requests
+                timeout = 60
+                
+                if self.provider == "gemini":
+                    gemini_model = "gemini-1.5-flash"
+                    if "pro" in model.lower():
+                        gemini_model = "gemini-1.5-pro"
+                    elif "2.0" in model.lower():
+                        gemini_model = "gemini-2.0-flash-exp"
+
+                    gemini_parts = []
+                    for msg in messages:
+                        content = msg.get("content")
+                        if isinstance(content, str):
+                            gemini_parts.append({"text": content})
+                        elif isinstance(content, list):
+                            for part in content:
+                                if part.get("type") == "text":
+                                    gemini_parts.append({"text": part.get("text", "")})
+                                elif part.get("type") == "image_url":
+                                    image_url_val = part.get("image_url", {}).get("url", "")
+                                    if image_url_val.startswith("data:"):
+                                        try:
+                                            header, base64_data = image_url_val.split(",", 1)
+                                            mime_type = header.split(";")[0].split(":")[1]
+                                            gemini_parts.append({
+                                                "inlineData": {
+                                                    "mimeType": mime_type,
+                                                    "data": base64_data
+                                                }
+                                            })
+                                        except Exception:
+                                            pass
+
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={self.api_key}"
+                    headers = {"Content-Type": "application/json"}
+                    body = {"contents": [{"parts": gemini_parts}]}
+
+                    res = requests.post(url, headers=headers, json=body, timeout=timeout)
+                    if res.status_code != 200:
+                        raise Exception(f"Gemini API error ({res.status_code}): {res.text}")
+
+                    res_json = res.json()
+                    try:
+                        text_response = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    except (KeyError, IndexError):
+                        raise Exception(f"Unexpected Gemini response format: {res_json}")
+
+                elif self.provider == "claude":
+                    claude_model = "claude-3-5-sonnet-20241022"
+                    if "haiku" in model.lower():
+                        claude_model = "claude-3-5-haiku-20241022"
+
+                    claude_parts = []
+                    for msg in messages:
+                        content = msg.get("content")
+                        if isinstance(content, str):
+                            claude_parts.append({"type": "text", "text": content})
+                        elif isinstance(content, list):
+                            for part in content:
+                                if part.get("type") == "text":
+                                    claude_parts.append({"type": "text", "text": part.get("text", "")})
+                                elif part.get("type") == "image_url":
+                                    image_url_val = part.get("image_url", {}).get("url", "")
+                                    if image_url_val.startswith("data:"):
+                                        try:
+                                            header, base64_data = image_url_val.split(",", 1)
+                                            mime_type = header.split(";")[0].split(":")[1]
+                                            claude_parts.append({
+                                                "type": "image",
+                                                "source": {
+                                                    "type": "base64",
+                                                    "media_type": mime_type,
+                                                    "data": base64_data
+                                                }
+                                            })
+                                        except Exception:
+                                            pass
+
+                    url = "https://api.anthropic.com/v1/messages"
+                    headers = {
+                        "x-api-key": self.api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json"
+                    }
+                    body = {
+                        "model": claude_model,
+                        "max_tokens": 2048,
+                        "messages": [{"role": "user", "content": claude_parts}]
+                    }
+
+                    res = requests.post(url, headers=headers, json=body, timeout=timeout)
+                    if res.status_code != 200:
+                        raise Exception(f"Claude API error ({res.status_code}): {res.text}")
+
+                    res_json = res.json()
+                    try:
+                        text_response = res_json["content"][0]["text"]
+                    except (KeyError, IndexError):
+                        raise Exception(f"Unexpected Claude response format: {res_json}")
+
+                else:
+                    openai_model = "gpt-4o-mini"
+                    if "gpt-4o" in model.lower() and "mini" not in model.lower():
+                        openai_model = "gpt-4o"
+
+                    url = "https://api.openai.com/v1/chat/completions"
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.api_key}"
+                    }
+                    body = {
+                        "model": openai_model,
+                        "messages": messages
+                    }
+
+                    res = requests.post(url, headers=headers, json=body, timeout=timeout)
+                    if res.status_code != 200:
+                        raise Exception(f"OpenAI API error ({res.status_code}): {res.text}")
+
+                    res_json = res.json()
+                    try:
+                        text_response = res_json["choices"][0]["message"]["content"]
+                    except (KeyError, IndexError):
+                        raise Exception(f"Unexpected OpenAI response format: {res_json}")
+
+                class MockMessage:
+                    def __init__(self, content):
+                        self.content = content
+                class MockChoice:
+                    def __init__(self, content):
+                        self.message = MockMessage(content)
+                class MockResponse:
+                    def __init__(self, content):
+                        self.choices = [MockChoice(content)]
+                return MockResponse(text_response)
 
 def sanitize_markdown(md_text: str) -> str:
     if not md_text:
@@ -410,64 +564,62 @@ def format_chapter_4_images(text: str) -> str:
             
     return text
 
-def refine_with_llm(markdown_text: str) -> str:
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key or api_key == "your_gemini_api_key_here":
-        # Fall back to local formatting if no valid API key is set
-        print("GEMINI_API_KEY is not set. Falling back to local offline formatting...")
+def refine_with_llm(markdown_text: str, api_key: Optional[str] = None, provider: str = "gemini") -> str:
+    actual_api_key = api_key or os.environ.get("GEMINI_API_KEY")
+    if not actual_api_key or actual_api_key == "your_gemini_api_key_here":
+        print("No valid API key provided. Falling back to local offline formatting...")
         return format_aicte_report(markdown_text)
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    headers = {"Content-Type": "application/json"}
-    
-    prompt = (
-        "You are an expert technical editor. You are refining an AICTE Activity Points document converted to markdown.\n"
-        "Please refine the markdown document by applying these rules:\n"
-        "1. Standardize the headers: Merge split chapter headers like 'CHAPTER 1**\\n# **INTRODUCTION**' into '# **CHAPTER 1: INTRODUCTION**'.\n"
-        "2. Subheadings must be cleanly numbered and formatted in Title Case: e.g. '## **1.1 Helping Local Schools**', '## **2.1 Helping Local Schools to Achieve Good Result...**'. Ensure the numbering is consistent within each chapter (1.1, 1.2..., 2.1, 2.2...).\n"
-        "3. Strip out any phantom empty tables (stray table structures containing only blank cells/pipes).\n"
-        "4. Resolve cut-off paragraphs: e.g. fix the split testimonial at the end of Section 4.1 so it reads smoothly as '...encouraged students to consider higher, technical, and vocational education seriously.' and starts Testimonial 2 as a new paragraph.\n"
-        "5. Retain all '[Embedded Image: ...]' tags exactly where they are.\n"
-        "6. Keep the actual content, details, local references (Belagavi, Sangolli Rayanna Samadhi, Halsi Temple, small vendors) 100% accurate and unchanged. Do not rewrite or summarize the core text.\n\n"
-        "Output ONLY the clean, refined Markdown content. Do not add any conversational text or markdown code fences (like ```markdown) at the beginning or end of your output.\n\n"
-        "Document to refine:\n\n" + markdown_text
-    )
-    
-    body = {
-        "contents": [{
-            "parts": [{
-                "text": prompt
-            }]
-        }]
-    }
-    
     try:
-        res = requests.post(url, headers=headers, json=body, timeout=30)
-        if res.status_code == 200:
-            res_json = res.json()
-            refined_text = res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
+        client = MultiProviderMockClient(provider=provider, api_key=actual_api_key)
+        prompt = (
+            "You are an expert technical editor. You are refining an AICTE Activity Points document converted to markdown.\n"
+            "Please refine the markdown document by applying these rules:\n"
+            "1. Standardize the headers: Merge split chapter headers like 'CHAPTER 1**\\n# **INTRODUCTION**' into '# **CHAPTER 1: INTRODUCTION**'.\n"
+            "2. Subheadings must be cleanly numbered and formatted in Title Case: e.g. '## **1.1 Helping Local Schools**', '## **2.1 Helping Local Schools to Achieve Good Result...**'. Ensure the numbering is consistent within each chapter (1.1, 1.2..., 2.1, 2.2...).\n"
+            "3. Strip out any phantom empty tables (stray table structures containing only blank cells/pipes).\n"
+            "4. Resolve cut-off paragraphs: e.g. fix the split testimonial at the end of Section 4.1 so it reads smoothly as '...encouraged students to consider higher, technical, and vocational education seriously.' and starts Testimonial 2 as a new paragraph.\n"
+            "5. Retain all '[Embedded Image: ...]' tags exactly where they are.\n"
+            "6. Keep the actual content, details, local references (Belagavi, Sangolli Rayanna Samadhi, Halsi Temple, small vendors) 100% accurate and unchanged. Do not rewrite or summarize the core text.\n\n"
+            "Output ONLY the clean, refined Markdown content. Do not add any conversational text or markdown code fences (like ```markdown) at the beginning or end of your output.\n\n"
+            "Document to refine:\n\n" + markdown_text
+        )
+        
+        model_name = "gemini-1.5-flash"
+        if provider == "openai":
+            model_name = "gpt-4o-mini"
+        elif provider == "claude":
+            model_name = "claude-3-5-sonnet"
             
-            # Clean markdown code fences if outputted by the model
-            if refined_text.startswith("```markdown"):
-                refined_text = refined_text[11:]
-            elif refined_text.startswith("```"):
-                refined_text = refined_text[3:]
-            if refined_text.endswith("```"):
-                refined_text = refined_text[:-3]
-            refined_text = refined_text.strip()
-            
-            # Format images to local URLs
-            refined_text = format_chapter_4_images(refined_text)
-            return refined_text
-        else:
-            print(f"Gemini API returned status code {res.status_code}: {res.text}. Falling back to local formatting.")
-            return format_aicte_report(markdown_text)
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        refined_text = response.choices[0].message.content.strip()
+        
+        # Clean markdown code fences if outputted by the model
+        if refined_text.startswith("```markdown"):
+            refined_text = refined_text[11:]
+        elif refined_text.startswith("```"):
+            refined_text = refined_text[3:]
+        if refined_text.endswith("```"):
+            refined_text = refined_text[:-3]
+        refined_text = refined_text.strip()
+        
+        # Format images to local URLs
+        refined_text = format_chapter_4_images(refined_text)
+        return refined_text
     except Exception as e:
-        print(f"Failed to query Gemini API: {e}. Falling back to local formatting.")
+        print(f"Failed to query LLM for refinement: {e}. Falling back to local formatting.")
         return format_aicte_report(markdown_text)
 
 @app.post("/convert")
-async def convert_file(file: UploadFile = File(...)):
+async def convert_file(
+    file: UploadFile = File(...),
+    x_api_key: Optional[str] = Header(None),
+    x_api_provider: Optional[str] = Header(None),
+    x_template: Optional[str] = Header(None)
+):
     # 1. Validate file extension
     filename = file.filename
     _, ext = os.path.splitext(filename.lower())
@@ -491,8 +643,27 @@ async def convert_file(file: UploadFile = File(...)):
         original_size = os.path.getsize(temp_file_path)
         
         # 3. Perform conversion using MarkItDown
-        # This executes synchronously in a standard worker thread (FastAPI handles def endpoints on a thread pool)
-        result = markitdown.convert(temp_file_path)
+        is_image = ext in {".png", ".jpg", ".jpeg"}
+        user_api_key = x_api_key
+        user_provider = x_api_provider or "gemini"
+        template = x_template or "auto"
+        
+        server_api_key = os.environ.get("GEMINI_API_KEY")
+        active_key = user_api_key or (server_api_key if user_provider == "gemini" else None)
+        
+        if active_key and active_key != "your_gemini_api_key_here":
+            mock_client = MultiProviderMockClient(provider=user_provider, api_key=active_key)
+            model_name = "gemini-1.5-flash"
+            if user_provider == "openai":
+                model_name = "gpt-4o-mini"
+            elif user_provider == "claude":
+                model_name = "claude-3-5-sonnet"
+                
+            local_markitdown = MarkItDown(llm_client=mock_client, llm_model=model_name)
+        else:
+            local_markitdown = MarkItDown()
+            
+        result = local_markitdown.convert(temp_file_path)
         
         if not result or result.text_content is None:
             raise ValueError("Conversion succeeded but returned no content.")
@@ -502,27 +673,43 @@ async def convert_file(file: UploadFile = File(...)):
         # Apply token and layout sanitization post-processing
         markdown_content = sanitize_markdown(markdown_content)
         
-        # Dynamically detect document type and apply formatting
-        content_lower = markdown_content.lower()
-        if "chapter 1" in content_lower or "chapter 2" in content_lower or "aicte" in content_lower or "conclusion" in content_lower:
-            markdown_content = refine_with_llm(markdown_content)
-        else:
+        # Dynamically or explicitly detect document type and apply formatting
+        if template == "raw":
+            pass
+        elif template == "aicte":
+            markdown_content = refine_with_llm(markdown_content, api_key=user_api_key, provider=user_provider)
+        elif template == "internship":
             markdown_content = format_to_internship_template(markdown_content)
+        else:
+            # "auto"
+            content_lower = markdown_content.lower()
+            if "chapter 1" in content_lower or "chapter 2" in content_lower or "aicte" in content_lower or "conclusion" in content_lower:
+                markdown_content = refine_with_llm(markdown_content, api_key=user_api_key, provider=user_provider)
+            else:
+                markdown_content = format_to_internship_template(markdown_content)
         
         markdown_size = len(markdown_content.encode("utf-8"))
         
+        # Detect if we should pop up warning about missing API key for images
+        has_api_key = bool(active_key and active_key != "your_gemini_api_key_here")
+        image_no_key = False
+        if not has_api_key:
+            if is_image:
+                image_no_key = True
+            elif "[Embedded Image" in markdown_content or "![Embedded Image" in markdown_content or "![fig" in markdown_content or "![Fig" in markdown_content:
+                image_no_key = True
+                
         return {
             "success": True,
             "filename": filename,
             "original_size": original_size,
             "markdown_size": markdown_size,
-            "markdown": markdown_content
+            "markdown": markdown_content,
+            "image_no_key": image_no_key
         }
         
     except Exception as e:
-        # Catch and return generic errors cleanly
         error_msg = str(e)
-        # Simplify common backend failures if needed, but return full details for debugging
         return JSONResponse(
             status_code=500,
             content={"success": False, "detail": f"Conversion error: {error_msg}"}

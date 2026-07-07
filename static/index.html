@@ -20,6 +20,17 @@
     <div class="glow-orb orb-3"></div>
 
     <div class="app-container">
+        <!-- Top Bar Actions -->
+        <div class="top-bar-actions">
+            <button id="settings-toggle-btn" class="btn btn-secondary btn-sm" title="API Configuration">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="settings-gear-icon">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span>API Settings</span>
+            </button>
+        </div>
+
         <!-- Header -->
         <header class="app-header">
             <div class="logo-area">
@@ -47,7 +58,7 @@
 
                 <!-- Dropzone Area -->
                 <div id="dropzone" class="dropzone">
-                    <input type="file" id="fileInput" class="hidden-input" accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.csv,.tsv,.json,.xml,.txt,.text,.md,.rst">
+                    <input type="file" id="fileInput" class="hidden-input" accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.csv,.tsv,.json,.xml,.txt,.text,.md,.rst,.png,.jpg,.jpeg">
                     
                     <!-- Default State -->
                     <div id="dropzone-default" class="dropzone-state">
@@ -60,7 +71,7 @@
                         </div>
                         <h3>Drag & Drop file here</h3>
                         <p class="upload-instructions">or click to browse from your device</p>
-                        <p class="file-limits">Supports PDF, DOCX, XLSX, PPTX, HTML, TXT (Max size 150MB)</p>
+                        <p class="file-limits">Supports PDF, DOCX, XLSX, PPTX, HTML, Images (Max size 150MB)</p>
                         <p class="file-blocks-warning">⚠️ Audio & Video formats are not supported</p>
                     </div>
 
@@ -102,6 +113,21 @@
                         </div>
                         <h3>Converting Document</h3>
                         <p id="convert-status-text" class="process-subtext">Parsing document structures...</p>
+                    </div>
+                </div>
+
+                <!-- Formatting Template Selection -->
+                <div class="template-selector-card">
+                    <div class="form-group">
+                        <label for="template-select" class="field-label">Formatting Style</label>
+                        <div class="select-wrapper">
+                            <select id="template-select" class="form-control select-field">
+                                <option value="auto">✨ Auto Detect (Smart)</option>
+                                <option value="raw">⚡ Raw Markdown (Fast / Offline)</option>
+                                <option value="aicte">📊 AICTE Activity Points Report</option>
+                                <option value="internship">📅 Internship Daily Log</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -203,6 +229,61 @@
 
     <!-- Alert toast for notifications -->
     <div id="toast" class="toast hidden">Copied to clipboard!</div>
+
+    <!-- Image warning toast -->
+    <div id="image-warning-toast" class="warning-toast hidden">
+        <div class="warning-toast-header">
+            <div class="warning-title-wrap">
+                <svg class="warning-toast-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <h4>Transcribing Images?</h4>
+            </div>
+            <button id="warning-toast-close" class="warning-close-btn">&times;</button>
+        </div>
+        <p>To transcribe photos/images and slide graphics to text, add your own Gemini, OpenAI, or Claude API Key in Settings!</p>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>API Configurations</h2>
+                <button id="modal-close-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-help-text">Configure your own API keys. Keys are saved in your browser's local storage and are never stored on our servers.</p>
+                
+                <div class="form-group">
+                    <label for="provider-select">API Provider</label>
+                    <select id="provider-select" class="form-control">
+                        <option value="gemini">Gemini (Google AI)</option>
+                        <option value="openai">OpenAI (GPT-4o)</option>
+                        <option value="claude">Anthropic Claude</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="api-key-input">API Key</label>
+                    <div class="input-with-button">
+                        <input type="password" id="api-key-input" class="form-control" placeholder="Enter your API key here...">
+                        <button id="key-visibility-toggle" class="btn btn-secondary btn-sm" type="button" title="Toggle visibility">👁️</button>
+                    </div>
+                </div>
+
+                <div class="status-indicator-wrap">
+                    <span id="key-status-badge" class="status-badge inactive">No Key Configured</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-settings-btn" class="btn btn-primary">Save Changes</button>
+                <button id="clear-settings-btn" class="btn btn-secondary">Clear Key</button>
+            </div>
+        </div>
+    </div>
 
     <script src="static/app.js"></script>
 </body>
