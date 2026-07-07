@@ -518,6 +518,11 @@ saveSettingsBtn.addEventListener('click', () => {
     const provider = providerSelect.value;
     const key = apiKeyInput.value.trim();
     
+    if (!key) {
+        showToast("Please enter an API Key, or click 'Clear Key'.");
+        return;
+    }
+    
     localStorage.setItem('api_provider', provider);
     localStorage.setItem(`api_key_${provider}`, key);
     localStorage.setItem('api_key', key);
