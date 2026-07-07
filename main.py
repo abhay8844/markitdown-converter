@@ -723,6 +723,50 @@ async def convert_file(
             except Exception:
                 pass
 
+@app.post("/validate-key")
+async def validate_key(
+    x_api_key: str = Header(...),
+    x_api_provider: str = Header(...)
+):
+    provider = x_api_provider.lower().strip()
+    try:
+        if provider == "gemini":
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={x_api_key}"
+            res = requests.get(url, timeout=10)
+            if res.status_code == 200:
+                return {"valid": True}
+            else:
+                return {"valid": False, "detail": f"Gemini status {res.status_code}"}
+        elif provider == "openai":
+            url = "https://api.openai.com/v1/models"
+            headers = {"Authorization": f"Bearer {x_api_key}"}
+            res = requests.get(url, headers=headers, timeout=10)
+            if res.status_code == 200:
+                return {"valid": True}
+            else:
+                return {"valid": False, "detail": f"OpenAI status {res.status_code}"}
+        elif provider == "claude":
+            url = "https://api.anthropic.com/v1/messages"
+            headers = {
+                "x-api-key": x_api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            body = {
+                "model": "claude-3-5-haiku-20241022",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "ping"}]
+            }
+            res = requests.post(url, headers=headers, json=body, timeout=10)
+            if res.status_code in (200, 201):
+                return {"valid": True}
+            else:
+                return {"valid": False, "detail": f"Claude status {res.status_code}"}
+        else:
+            return {"valid": False, "detail": "Invalid provider"}
+    except Exception as e:
+        return {"valid": False, "detail": str(e)}
+
 # Serve static files from the 'static' directory
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")

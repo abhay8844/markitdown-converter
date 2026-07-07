@@ -487,13 +487,47 @@ saveSettingsBtn.addEventListener('click', () => {
         return;
     }
     
-    localStorage.setItem('api_provider', provider);
-    localStorage.setItem(`api_key_${provider}`, key);
-    localStorage.setItem('api_key', key); // Backwards compatibility fallback
+    saveSettingsBtn.disabled = true;
+    saveSettingsBtn.textContent = "Validating Key...";
     
-    updateStatusBadge(provider, !!key);
-    showToast("Settings saved successfully!");
-    closeModal();
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/validate-key', true);
+    xhr.setRequestHeader('X-API-Key', key);
+    xhr.setRequestHeader('X-API-Provider', provider);
+    
+    xhr.onload = () => {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.textContent = "Save Changes";
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.valid) {
+                    localStorage.setItem('api_provider', provider);
+                    localStorage.setItem(`api_key_${provider}`, key);
+                    localStorage.setItem('api_key', key);
+                    
+                    updateStatusBadge(provider, true);
+                    showToast("Settings saved successfully! Key is active.");
+                    closeModal();
+                } else {
+                    showToast(`Invalid ${provider.toUpperCase()} API Key! Please verify.`);
+                }
+            } catch (err) {
+                showToast("Error checking API key validity.");
+            }
+        } else {
+            showToast("Server error during key validation.");
+        }
+    };
+    
+    xhr.onerror = () => {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.textContent = "Save Changes";
+        showToast("Network error. Key validation failed.");
+    };
+    
+    xhr.send();
 });
 
 clearSettingsBtn.addEventListener('click', () => {
